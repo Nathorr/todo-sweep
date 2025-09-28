@@ -3,14 +3,12 @@ import { App, Plugin, PluginSettingTab, Setting, moment, Notice, TFile, getFront
 /* ---------- Settings ---------- */
 interface TodoSweepSettings {
     daysThreshold: number // Keep items completed within the last N days
-    todoNoteFilename: string // Target note for new todos
     insertPosition: 'prepend' | 'append' // Where new todos should be inserted
     autoMoveChecked: boolean // Automatically move checked items to the bottom of the list
 }
 
 const DEFAULT_SETTINGS: TodoSweepSettings = {
     daysThreshold: 0,
-    todoNoteFilename: '🌟 To-do.md',
     insertPosition: 'prepend',
     autoMoveChecked: false
 }
@@ -30,7 +28,6 @@ export default class TodoSweepPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings()
-
         this.addSettingTab(new TodoSweepSettingTab(this.app, this))
 
         // Register code block processor for todo-input
@@ -57,12 +54,15 @@ export default class TodoSweepPlugin extends Plugin {
                 cls: 'todo-clean-btn'
             })
 
+            const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath)
+            if (!(file instanceof TFile)) return
+
             // Bind events directly here
             const addTodo = async () => {
                 const text = input.value.trim()
                 if (text) {
                     try {
-                        await this.addTodoItem(text)
+                        await this.addTodoItem(file, text)
                         input.value = ''
                         input.focus()
                     } catch (error) {
@@ -76,7 +76,7 @@ export default class TodoSweepPlugin extends Plugin {
 
             const cleanTodos = async () => {
                 try {
-                    await this.cleanTodoFile()
+                    await this.cleanFile(file)
                 } catch (error) {
                     console.error(error)
                     new Notice('Error cleaning todos: ' + (error as Error).message)
@@ -94,19 +94,22 @@ export default class TodoSweepPlugin extends Plugin {
         })
 
         if (this.settings.autoMoveChecked) {
-            // Debounced auto-move in editor mode
-            const debouncedAutoMove = debounce(async () => {
-                    const file = this.getTodoFile()
-                    if (!file) return
+            // Debounced auto-move
+            const debouncedAutoMove = debounce(async (file: TFile) => {
+                if (await this.noteHasTodoInput(file)) {
                     await this.autoMoveChecked(file)
+                }
             }, 500)
 
-            this.registerEvent(this.app.workspace.on('editor-change', debouncedAutoMove))
+            this.registerEvent(
+                this.app.workspace.on('editor-change', (editor, info) => {
+                    if (info.file) debouncedAutoMove(info.file)
+                })
+            )
 
-            // Works in reading mode
             this.registerEvent(
                 this.app.vault.on('modify', async (file) => {
-                    if (file instanceof TFile && file.path === this.settings.todoNoteFilename) {
+                    if (file instanceof TFile && (await this.noteHasTodoInput(file))) {
                         await this.autoMoveChecked(file)
                     }
                 })
@@ -114,21 +117,20 @@ export default class TodoSweepPlugin extends Plugin {
         }
     }
 
-    /* ---------- File helpers ---------- */
-    private getTodoFile(): TFile | null {
-        const file = this.app.vault.getAbstractFileByPath(this.settings.todoNoteFilename)
-        if (!(file instanceof TFile)) {
-            new Notice(
-                `Todo note "${this.settings.todoNoteFilename}" not found. Please check the filename in settings.`
-            )
-            return null
+    /* ---------- Helpers ---------- */
+    private async noteHasTodoInput(file: TFile): Promise<boolean> {
+        try {
+            const content = await this.app.vault.read(file)
+            return content.includes('```todo-input')
+        } catch {
+            return false
         }
-        return file
     }
 
     /* ---------- Cleanup logic ---------- */
-    private async cleanFile(file: TFile | null) {
-        if (!file) {
+    private async cleanFile(file: TFile) {
+        if (!(await this.noteHasTodoInput(file))) {
+            new Notice("This note doesn't contain a todo-input block, skipping clean.")
             return
         }
 
@@ -150,7 +152,6 @@ export default class TodoSweepPlugin extends Plugin {
                 }
                 return whole
             })
-
             return cleaned
         })
 
@@ -162,8 +163,6 @@ export default class TodoSweepPlugin extends Plugin {
     }
 
     private async autoMoveChecked(file: TFile) {
-        if (!file) return
-
         await this.app.vault.process(file, (data) => {
             const lines = data.split(/\r?\n/)
 
@@ -181,7 +180,6 @@ export default class TodoSweepPlugin extends Plugin {
                 }
             }
 
-            // Keep non-todo lines where they are, but move checked todos below unchecked
             return [...others, ...unchecked, ...checked].join('\n')
         })
     }
@@ -194,11 +192,13 @@ export default class TodoSweepPlugin extends Plugin {
         await this.saveData(this.settings)
     }
 
-    async addTodoItem(todoText: string) {
-        const todoFile = this.getTodoFile()
-        if (!todoFile) return
+    async addTodoItem(file: TFile, todoText: string) {
+        if (!(await this.noteHasTodoInput(file))) {
+            new Notice("This note doesn't contain a todo-input block, cannot add todo.")
+            return
+        }
 
-        await this.app.vault.process(todoFile, (data) => {
+        await this.app.vault.process(file, (data) => {
             const todoItem = `- [ ] ${todoText}\n`
 
             if (this.settings.insertPosition === 'append') {
@@ -212,12 +212,6 @@ export default class TodoSweepPlugin extends Plugin {
             }
             return data.slice(0, insertPosition) + todoItem + data.slice(insertPosition)
         })
-    }
-
-    async cleanTodoFile() {
-        const todoFile = this.getTodoFile()
-        if (!todoFile) return
-        await this.cleanFile(todoFile)
     }
 }
 
@@ -262,20 +256,6 @@ class TodoSweepSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.insertPosition)
                     .onChange(async (value: 'prepend' | 'append') => {
                         this.plugin.settings.insertPosition = value
-                        await this.plugin.saveSettings()
-                    })
-            )
-
-        // Todo note filename setting
-        new Setting(containerEl)
-            .setName('Todo note filename')
-            .setDesc('The filename of the note where new todo items will be added.')
-            .addText((text) =>
-                text
-                    .setPlaceholder('Todo.md')
-                    .setValue(this.plugin.settings.todoNoteFilename)
-                    .onChange(async (value) => {
-                        this.plugin.settings.todoNoteFilename = value.trim() || 'Todo.md'
                         await this.plugin.saveSettings()
                     })
             )
