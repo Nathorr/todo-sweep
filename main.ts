@@ -2,13 +2,11 @@ import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, getFrontMatterIn
 
 /* ---------- Settings ---------- */
 interface TodoSweepSettings {
-    insertPosition: 'prepend' | 'append' // Where new todos should be inserted
     autoMoveChecked: boolean // Automatically move checked items to the bottom of the list
 }
 
 const DEFAULT_SETTINGS: TodoSweepSettings = {
-    insertPosition: 'prepend',
-    autoMoveChecked: false
+    autoMoveChecked: true
 }
 
 /* ---------- Helper ---------- */
@@ -188,11 +186,6 @@ export default class TodoSweepPlugin extends Plugin {
 
         await this.app.vault.process(file, (data) => {
             const todoItem = `- [ ] ${todoText}\n`
-
-            if (this.settings.insertPosition === 'append') {
-                return data + '\n' + todoItem
-            }
-
             const frontmatterInfo = getFrontMatterInfo(data)
             let insertPosition = 0
             if (frontmatterInfo.exists) {
@@ -215,21 +208,6 @@ class TodoSweepSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this
         containerEl.empty()
-
-        // Insert position setting
-        new Setting(containerEl)
-            .setName('New todo position')
-            .setDesc('Choose whether new todos are added at the top (after frontmatter) or at the bottom of the file.')
-            .addDropdown((drop) =>
-                drop
-                    .addOption('prepend', 'Top of file (default)')
-                    .addOption('append', 'Bottom of file')
-                    .setValue(this.plugin.settings.insertPosition)
-                    .onChange(async (value: 'prepend' | 'append') => {
-                        this.plugin.settings.insertPosition = value
-                        await this.plugin.saveSettings()
-                    })
-            )
 
         new Setting(containerEl)
             .setName('Auto-move checked todos')
