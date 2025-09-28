@@ -135,7 +135,7 @@ export default class TodoSweepPlugin extends Plugin {
         }
 
         const cutoff = moment().startOf('day').subtract(this.settings.daysThreshold, 'days')
-        const doneLineRegex = /^- \[[xX]\].*?(?:✅\s*(\d{4}-\d{2}-\d{2}))?.*(?:\r?\n|$)/gm
+        const doneLineRegex = /\n?\s*- \[[xX]\].*?(?:✅\s*(\d{4}-\d{2}-\d{2}))?.*(?:\r?\n|$)/g
         let removedCount = 0
 
         await this.app.vault.process(file, (data) => {
@@ -152,7 +152,7 @@ export default class TodoSweepPlugin extends Plugin {
                 }
                 return whole
             })
-            return cleaned
+            return cleaned.replace(/^\n+/, '').replace(/\n+$/, '')
         })
 
         if (removedCount > 0) {
