@@ -39,7 +39,7 @@ or
    * Completed items older than the threshold are automatically removed.  
 
 * **Auto-reorder checked items**  
-   * When you check a box in your configured todo file, the line automatically moves to the bottom of the unchecked list.
+   * When you check a box in your todo file, the line automatically moves to the bottom of the unchecked list.
 
 * **Responsive design**  
    * Works on mobile and desktop with a clean, responsive UI.  
@@ -49,7 +49,9 @@ or
 ## Settings
 
 - **Keep the last N days** → Number of days to keep completed todos before auto-cleaning.  
-- **Todo note filename** → The file where new todos are added.  
+- **New todo position** → Choose whether new todos are added at the top or at the bottom of the file.
+- **Auto-move checked todos** → Automatically move checked todos to the bottom of the list.
+  
 
 ---
 
@@ -71,7 +73,6 @@ or
 ```
 ![Todo Sweep demo](demo.png)
 
-2. Configure your **main todo file** in settings.  
-3. Add new tasks quickly via the input bar.  
-4. Clean up old completed tasks using the Clean button or automatically.  
-5. Checked items are automatically moved below unchecked ones in your main todo file.
+2. Add new tasks quickly via the input bar.  
+3. Clean up old completed tasks using the Clean button or automatically.  
+4. Checked items are automatically moved below unchecked ones.
