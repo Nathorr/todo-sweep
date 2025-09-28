@@ -1,14 +1,5 @@
 import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, getFrontMatterInfo } from 'obsidian'
 
-/* ---------- Settings ---------- */
-interface TodoSweepSettings {
-    autoMoveChecked: boolean // Automatically move checked items to the bottom of the list
-}
-
-const DEFAULT_SETTINGS: TodoSweepSettings = {
-    autoMoveChecked: true
-}
-
 /* ---------- Helper ---------- */
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
     let timeout: number | null = null
@@ -20,10 +11,7 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
 
 /* ---------- Main Plugin ---------- */
 export default class TodoSweepPlugin extends Plugin {
-    settings: TodoSweepSettings
-
     async onload() {
-        await this.loadSettings()
         this.addSettingTab(new TodoSweepSettingTab(this.app, this))
 
         // Register code block processor for todo-input
@@ -89,28 +77,25 @@ export default class TodoSweepPlugin extends Plugin {
             })
         })
 
-        if (this.settings.autoMoveChecked) {
-            // Debounced auto-move
-            const debouncedAutoMove = debounce(async (file: TFile) => {
-                if (await this.noteHasTodoInput(file)) {
+        const debouncedAutoMove = debounce(async (file: TFile) => {
+            if (await this.noteHasTodoInput(file)) {
+                await this.autoMoveChecked(file)
+            }
+        }, 500)
+
+        this.registerEvent(
+            this.app.workspace.on('editor-change', (editor, info) => {
+                if (info.file) debouncedAutoMove(info.file)
+            })
+        )
+
+        this.registerEvent(
+            this.app.vault.on('modify', async (file) => {
+                if (file instanceof TFile && (await this.noteHasTodoInput(file))) {
                     await this.autoMoveChecked(file)
                 }
-            }, 500)
-
-            this.registerEvent(
-                this.app.workspace.on('editor-change', (editor, info) => {
-                    if (info.file) debouncedAutoMove(info.file)
-                })
-            )
-
-            this.registerEvent(
-                this.app.vault.on('modify', async (file) => {
-                    if (file instanceof TFile && (await this.noteHasTodoInput(file))) {
-                        await this.autoMoveChecked(file)
-                    }
-                })
-            )
-        }
+            })
+        )
     }
 
     /* ---------- Helpers ---------- */
@@ -135,8 +120,8 @@ export default class TodoSweepPlugin extends Plugin {
 
         await this.app.vault.process(file, (data) => {
             const cleaned = data.replace(doneLineRegex, () => {
-                    removedCount++
-                    return ''
+                removedCount++
+                return ''
             })
             return cleaned.replace(/^\n+/, '').replace(/\n+$/, '')
         })
@@ -170,14 +155,6 @@ export default class TodoSweepPlugin extends Plugin {
         })
     }
 
-    /* ---------- Settings I/O ---------- */
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
-    }
-    async saveSettings() {
-        await this.saveData(this.settings)
-    }
-
     async addTodoItem(file: TFile, todoText: string) {
         if (!(await this.noteHasTodoInput(file))) {
             new Notice("This note doesn't contain a todo-input block, cannot add todo.")
@@ -208,19 +185,6 @@ class TodoSweepSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this
         containerEl.empty()
-
-        new Setting(containerEl)
-            .setName('Auto-move checked todos')
-            .setDesc('Automatically move checked todos to the bottom of the list (above other checked items).')
-            .addToggle((toggle) =>
-                toggle.setValue(this.plugin.settings.autoMoveChecked).onChange(async (value) => {
-                    this.plugin.settings.autoMoveChecked = value
-                    await this.plugin.saveSettings()
-                    new Notice(
-                        `Auto-move checked todos ${value ? 'enabled' : 'disabled'}. Restart or reload the plugin to apply.`
-                    )
-                })
-            )
 
         // Usage instructions
         const info = document.createElement('div')
