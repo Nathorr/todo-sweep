@@ -1,14 +1,12 @@
-import { App, Plugin, PluginSettingTab, Setting, moment, Notice, TFile, getFrontMatterInfo } from 'obsidian'
+import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, getFrontMatterInfo } from 'obsidian'
 
 /* ---------- Settings ---------- */
 interface TodoSweepSettings {
-    daysThreshold: number // Keep items completed within the last N days
     insertPosition: 'prepend' | 'append' // Where new todos should be inserted
     autoMoveChecked: boolean // Automatically move checked items to the bottom of the list
 }
 
 const DEFAULT_SETTINGS: TodoSweepSettings = {
-    daysThreshold: 0,
     insertPosition: 'prepend',
     autoMoveChecked: false
 }
@@ -134,23 +132,13 @@ export default class TodoSweepPlugin extends Plugin {
             return
         }
 
-        const cutoff = moment().startOf('day').subtract(this.settings.daysThreshold, 'days')
-        const doneLineRegex = /\n?\s*- \[[xX]\].*?(?:✅\s*(\d{4}-\d{2}-\d{2}))?.*(?:\r?\n|$)/g
+        const doneLineRegex = /\n?\s*- \[[xX]\].*(?:\r?\n|$)/g
         let removedCount = 0
 
         await this.app.vault.process(file, (data) => {
-            const cleaned = data.replace(doneLineRegex, (whole, dateStr: string) => {
-                if (dateStr) {
-                    const doneDate = moment(dateStr, 'YYYY-MM-DD', true)
-                    if (doneDate.isValid() && doneDate.isSameOrBefore(cutoff)) {
-                        removedCount++
-                        return ''
-                    }
-                } else if (this.settings.daysThreshold === 0) {
+            const cleaned = data.replace(doneLineRegex, () => {
                     removedCount++
                     return ''
-                }
-                return whole
             })
             return cleaned.replace(/^\n+/, '').replace(/\n+$/, '')
         })
@@ -158,7 +146,7 @@ export default class TodoSweepPlugin extends Plugin {
         if (removedCount > 0) {
             new Notice(`Removed ${removedCount} completed task(s).`)
         } else {
-            new Notice('Nothing to clean: no matching lines.')
+            new Notice('Nothing to clean: no completed todos found.')
         }
     }
 
@@ -227,23 +215,6 @@ class TodoSweepSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this
         containerEl.empty()
-
-        // Numeric threshold input
-        new Setting(containerEl)
-            .setName('Keep the last N days')
-            .setDesc('Only keep items completed within the last N days; older lines will be deleted.')
-            .addText((text) =>
-                text
-                    .setPlaceholder('5')
-                    .setValue(String(this.plugin.settings.daysThreshold))
-                    .onChange(async (value) => {
-                        const n = parseInt(value.trim(), 10)
-                        if (!Number.isNaN(n) && n >= 0) {
-                            this.plugin.settings.daysThreshold = n
-                            await this.plugin.saveSettings()
-                        }
-                    })
-            )
 
         // Insert position setting
         new Setting(containerEl)
