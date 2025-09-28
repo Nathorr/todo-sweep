@@ -34,12 +34,6 @@ A completed item must follow the pattern:
 
 ---
 
-## Settings
-
-- **Auto-move checked todos** → Automatically move checked todos to the bottom of the list.
-
----
-
 ## Installation
 
 1. Clone or copy the plugin folder into
