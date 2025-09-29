@@ -4,9 +4,9 @@
 
 An [Obsidian](https://obsidian.md) plugin that helps you keep your todo lists clean and organized:  
 
+- **Quickly add new todos** via an inline input bar.
+- **Auto-move checked items** to the bottom of your todo list, but above other checked items.  
 - **Clean completed tasks** using Clean button.
-- **Quickly add new todos** via an inline input bar.  
-- **Auto-move checked items** to the bottom of your todo list (above other checked items).  
 - Works on both **desktop and mobile**.
 
 A completed item must follow the pattern:
@@ -14,23 +14,6 @@ A completed item must follow the pattern:
 ```markdown
 - [x] Task description
 ```
-
----
-
-## Features
-
-* **Todo input bar**  
-   * This adds a neat input bar with an **Add** button and a **Clean** button.
-   * Insert a code block on top of any note:
-```markdown
-```todo-input
-```
-
-* **Auto-reorder checked items**  
-   * When you check a box in your todo file, the line automatically moves to the bottom of the unchecked list.
-
-* **Responsive design**  
-   * Works on mobile and desktop with a clean, responsive UI.  
 
 ---
 
@@ -52,6 +35,6 @@ A completed item must follow the pattern:
 ```
 ![Todo Sweep demo](demo.png)
 
-2. Add new tasks quickly via the input bar.  
-3. Clean up old completed tasks using the Clean button.  
-4. Checked items are automatically moved below unchecked ones.
+2. Add new tasks quickly via the input bar.
+3. Checked items are automatically moved below unchecked ones.
+4. Clean up old completed tasks using the Clean button.
