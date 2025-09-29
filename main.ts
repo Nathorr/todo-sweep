@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, getFrontMatterInfo } from 'obsidian'
+import { App, Plugin, PluginSettingTab, Notice, TFile, getFrontMatterInfo } from 'obsidian'
 
 /* ---------- Helper ---------- */
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
