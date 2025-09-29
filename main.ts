@@ -14,7 +14,6 @@ export default class TodoSweepPlugin extends Plugin {
     async onload() {
         this.addSettingTab(new TodoSweepSettingTab(this.app, this))
 
-        // Register code block processor for todo-input
         this.registerMarkdownCodeBlockProcessor('todo-input', (source, el, ctx) => {
             const container = el.createDiv('todo-input-bar')
 
@@ -41,7 +40,6 @@ export default class TodoSweepPlugin extends Plugin {
             const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath)
             if (!(file instanceof TFile)) return
 
-            // Bind events directly here
             const addTodo = async () => {
                 const text = input.value.trim()
                 if (text) {
@@ -135,7 +133,18 @@ export default class TodoSweepPlugin extends Plugin {
 
     private async autoMoveChecked(file: TFile) {
         await this.app.vault.process(file, (data) => {
-            const lines = data.split(/\r?\n/)
+            const regex = /```todo-input[\s\S]*?\n```/m
+            const match = regex.exec(data)
+
+            let block = ''
+            let rest = data
+
+            if (match) {
+                block = match[0]
+                rest = data.slice(0, match.index) + data.slice(match.index + match[0].length)
+            }
+
+            const lines = rest.split(/\r?\n/)
 
             const unchecked: string[] = []
             const checked: string[] = []
@@ -146,12 +155,12 @@ export default class TodoSweepPlugin extends Plugin {
                     unchecked.push(line)
                 } else if (/^- \[[xX]\]/.test(line)) {
                     checked.push(line)
-                } else {
+                } else if (line.trim().length > 0) {
                     others.push(line)
                 }
             }
 
-            return [...others, ...unchecked, ...checked].join('\n')
+            return [block, ...others, ...unchecked, ...checked].join('\n').trim()
         })
     }
 
@@ -163,12 +172,16 @@ export default class TodoSweepPlugin extends Plugin {
 
         await this.app.vault.process(file, (data) => {
             const todoItem = `- [ ] ${todoText}\n`
-            const frontmatterInfo = getFrontMatterInfo(data)
-            let insertPosition = 0
-            if (frontmatterInfo.exists) {
-                insertPosition = frontmatterInfo.contentStart
+
+            const regex = /```todo-input[\s\S]*?\n```/m
+            const match = regex.exec(data)
+
+            if (!match) {
+                return data + '\n' + todoItem
             }
-            return data.slice(0, insertPosition) + todoItem + data.slice(insertPosition)
+
+            const insertPosition = match.index + match[0].length
+            return data.slice(0, insertPosition) + '\n' + todoItem + data.slice(insertPosition)
         })
     }
 }
